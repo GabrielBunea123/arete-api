@@ -1,0 +1,200 @@
+openapi: 3.0.3
+info:
+  title: Arete API - authentication
+  description: >
+    Sign-up and sign-in with email/password or Google, plus session handling.
+    Every successful sign-in sets two HttpOnly cookies: `access_token` (short-lived JWT, sent on
+    every request) and `refresh_token` (long-lived, only sent to `/auth`). `POST /auth/refresh`
+    rotates the refresh token; reusing a rotated token revokes the whole session.
+    State-changing requests need the `X-XSRF-TOKEN` header, obtained through `GET /auth/csrf`.
+  version: 1.0.0
+
+servers:
+  - url: /api/v1
+
+security: []
+
+paths:
+  /auth/register:
+    post:
+      tags: [Auth]
+      summary: Register with email and password
+      description: Creates a password account with the USER role and signs the new user in.
+      operationId: registerUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterUserRequest'
+      responses:
+        '201':
+          description: User registered and signed in.
+          headers:
+            Set-Cookie:
+              $ref: './common.yaml#/components/headers/SetAuthCookies'
+          content:
+            application/json:
+              schema:
+                $ref: './user.yaml#/components/schemas/UserResponse'
+        '400':
+          $ref: './common.yaml#/components/responses/BadRequest'
+        '403':
+          $ref: './common.yaml#/components/responses/Forbidden'
+        '409':
+          $ref: './common.yaml#/components/responses/Conflict'
+        '429':
+          $ref: './common.yaml#/components/responses/TooManyRequests'
+
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Sign in with email and password
+      description: Checks the credentials and sets the auth cookies. Wrong email and wrong password give the same 401.
+      operationId: loginUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserLoginRequest'
+      responses:
+        '204':
+          description: Signed in.
+          headers:
+            Set-Cookie:
+              $ref: './common.yaml#/components/headers/SetAuthCookies'
+        '400':
+          $ref: './common.yaml#/components/responses/BadRequest'
+        '401':
+          $ref: './common.yaml#/components/responses/Unauthorized'
+        '403':
+          $ref: './common.yaml#/components/responses/Forbidden'
+        '429':
+          $ref: './common.yaml#/components/responses/TooManyRequests'
+
+  /auth/google:
+    post:
+      tags: [Auth]
+      summary: Sign in with Google
+      description: >
+        Verifies a Google ID token (signature, audience, expiry) and signs the user in. The account is
+        found by Google's subject id. On the first Google sign-in, the identity is linked to an existing
+        account with the same verified email, or a new account is created.
+      operationId: loginWithGoogle
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GoogleLoginRequest'
+      responses:
+        '204':
+          description: Signed in.
+          headers:
+            Set-Cookie:
+              $ref: './common.yaml#/components/headers/SetAuthCookies'
+        '400':
+          $ref: './common.yaml#/components/responses/BadRequest'
+        '401':
+          $ref: './common.yaml#/components/responses/Unauthorized'
+        '403':
+          $ref: './common.yaml#/components/responses/Forbidden'
+        '429':
+          $ref: './common.yaml#/components/responses/TooManyRequests'
+
+  /auth/refresh:
+    post:
+      tags: [Auth]
+      summary: Refresh the session
+      description: >
+        Exchanges the `refresh_token` cookie for a new access token and a new refresh token, and revokes
+        the old refresh token. Presenting an already-rotated token revokes every token in its family.
+      operationId: refreshSession
+      responses:
+        '204':
+          description: Session refreshed.
+          headers:
+            Set-Cookie:
+              $ref: './common.yaml#/components/headers/SetAuthCookies'
+        '401':
+          $ref: './common.yaml#/components/responses/Unauthorized'
+        '403':
+          $ref: './common.yaml#/components/responses/Forbidden'
+
+  /auth/logout:
+    post:
+      tags: [Auth]
+      summary: Sign out
+      description: Revokes the current refresh token family and clears both auth cookies. Succeeds even when the session is already gone.
+      operationId: logoutUser
+      responses:
+        '204':
+          description: Signed out and cookies cleared.
+        '403':
+          $ref: './common.yaml#/components/responses/Forbidden'
+
+  /auth/csrf:
+    get:
+      tags: [Auth]
+      summary: Get a CSRF token
+      description: Sets the `XSRF-TOKEN` cookie. The client echoes its value in the `X-XSRF-TOKEN` header on state-changing requests.
+      operationId: getCsrfToken
+      responses:
+        '204':
+          description: CSRF cookie set.
+
+components:
+  schemas:
+    RegisterUserRequest:
+      type: object
+      required: [fullName, email, password, confirmPassword]
+      properties:
+        fullName:
+          type: string
+          minLength: 2
+          maxLength: 100
+          example: Jane Doe
+        email:
+          type: string
+          format: email
+          maxLength: 255
+          example: jane.doe@example.com
+        password:
+          type: string
+          format: password
+          minLength: 8
+          maxLength: 128
+          example: Str0ngP@ss
+        confirmPassword:
+          type: string
+          format: password
+          minLength: 8
+          maxLength: 128
+          example: Str0ngP@ss
+
+    UserLoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 255
+          example: jane.doe@example.com
+        password:
+          type: string
+          format: password
+          minLength: 1
+          maxLength: 128
+          example: Str0ngP@ss
+
+    GoogleLoginRequest:
+      type: object
+      required: [idToken]
+      properties:
+        idToken:
+          type: string
+          minLength: 1
+          maxLength: 4096
+          description: The ID token (credential) returned to the frontend by Google Identity Services.

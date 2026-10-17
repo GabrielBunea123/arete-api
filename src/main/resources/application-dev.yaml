@@ -1,0 +1,5 @@
+spring:
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/arete}
+    username: ${DB_USERNAME:arete}
+    password: ${DB_PASSWORD:arete}

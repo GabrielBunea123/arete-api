@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:docs.langchain.com)",
+      "WebSearch",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:www.langchain.com)",
+      "WebFetch(domain:reference.langchain.com)",
+      "WebFetch(domain:changelog.langchain.com)"
+    ]
+  }
+}

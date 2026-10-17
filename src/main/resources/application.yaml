@@ -1,0 +1,9 @@
+spring:
+  application:
+    name: arete-api
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
