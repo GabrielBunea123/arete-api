@@ -80,7 +80,8 @@ paths:
       description: >
         Verifies a Google ID token (signature, audience, expiry) and signs the user in. The account is
         found by Google's subject id. On the first Google sign-in, the identity is linked to an existing
-        account with the same verified email, or a new account is created.
+        account with the same verified email, or a new account is created. Linking to an account whose
+        email was never verified removes that account's password, since Google has just proven who owns the email.
       operationId: loginWithGoogle
       requestBody:
         required: true
@@ -100,6 +101,8 @@ paths:
           $ref: './common.yaml#/components/responses/Unauthorized'
         '403':
           $ref: './common.yaml#/components/responses/Forbidden'
+        '409':
+          $ref: './common.yaml#/components/responses/Conflict'
         '429':
           $ref: './common.yaml#/components/responses/TooManyRequests'
 
@@ -111,6 +114,8 @@ paths:
         Exchanges the `refresh_token` cookie for a new access token and a new refresh token, and revokes
         the old refresh token. Presenting an already-rotated token revokes every token in its family.
       operationId: refreshSession
+      parameters:
+        - $ref: '#/components/parameters/RefreshTokenCookie'
       responses:
         '204':
           description: Session refreshed.
@@ -128,6 +133,8 @@ paths:
       summary: Sign out
       description: Revokes the current refresh token family and clears both auth cookies. Succeeds even when the session is already gone.
       operationId: logoutUser
+      parameters:
+        - $ref: '#/components/parameters/RefreshTokenCookie'
       responses:
         '204':
           description: Signed out and cookies cleared.
@@ -145,6 +152,15 @@ paths:
           description: CSRF cookie set.
 
 components:
+  parameters:
+    RefreshTokenCookie:
+      name: refresh_token
+      in: cookie
+      required: false
+      description: The HttpOnly refresh token set by a previous sign-in or refresh. The browser sends it automatically.
+      schema:
+        type: string
+
   schemas:
     RegisterUserRequest:
       type: object

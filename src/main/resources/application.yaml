@@ -2,8 +2,39 @@ spring:
   application:
     name: arete-api
   jpa:
+    open-in-view: false
     hibernate:
       ddl-auto: validate
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
+        jdbc:
+          time_zone: UTC
+
+server:
+  servlet:
+    context-path: /api/v1
+
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
+
+arete:
+  jwt:
+    secret: ${JWT_SECRET}
+    issuer: arete-api
+    access-expiration: 15m
+    refresh-expiration: 30d
+    cookie:
+      secure: true
+      access-same-site: LAX
+      refresh-same-site: STRICT
+      refresh-path: ${server.servlet.context-path}/auth
+  google:
+    client-id: ${GOOGLE_CLIENT_ID}
+    jwk-set-uri: https://www.googleapis.com/oauth2/v3/certs
+    issuers:
+      - accounts.google.com
+      - https://accounts.google.com
