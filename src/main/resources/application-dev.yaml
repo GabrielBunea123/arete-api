@@ -1,5 +1,25 @@
 spring:
+  config:
+    import: optional:file:./dev/.env[.properties]
   datasource:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/arete}
     username: ${DB_USERNAME:arete}
     password: ${DB_PASSWORD:arete}
+
+arete:
+  jwt:
+    cookie:
+      secure: false
+
+springdoc:
+  api-docs:
+    enabled: true
+  swagger-ui:
+    enabled: true
+    urls:
+      - name: Auth
+        url: ${server.servlet.context-path}/openapi/auth.yaml
+      - name: User
+        url: ${server.servlet.context-path}/openapi/user.yaml
+    csrf:
+      enabled: true

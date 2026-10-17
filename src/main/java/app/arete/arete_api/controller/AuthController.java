@@ -5,7 +5,10 @@ import app.arete.arete_api.api.model.GoogleLoginRequestDto;
 import app.arete.arete_api.api.model.RegisterUserRequestDto;
 import app.arete.arete_api.api.model.UserLoginRequestDto;
 import app.arete.arete_api.api.model.UserResponseDto;
-import app.arete.arete_api.service.UserService;
+import app.arete.arete_api.model.dto.auth.AuthTokens;
+import app.arete.arete_api.model.dto.auth.RegistrationResult;
+import app.arete.arete_api.service.AuthCookieService;
+import app.arete.arete_api.service.AuthService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -15,37 +18,44 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class AuthController implements AuthApi {
 
-    private final UserService userService;
+    private final AuthService authService;
+    private final AuthCookieService authCookieService;
 
     @Override
     public ResponseEntity<UserResponseDto> registerUser(final RegisterUserRequestDto registerUserRequestDto) {
-        final UserResponseDto userResponseDto = userService.register(registerUserRequestDto);
-        return ResponseEntity.status(HttpStatus.CREATED).body(userResponseDto);
+        final RegistrationResult registrationResult = authService.register(registerUserRequestDto);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .headers(authCookieService.buildSessionCookies(registrationResult.tokens()))
+                .body(registrationResult.user());
     }
 
-    // TODO: implement once AuthService (JWT cookies, Google ID token verification, refresh rotation) exists
     @Override
     public ResponseEntity<Void> loginUser(final UserLoginRequestDto userLoginRequestDto) {
-        throw new UnsupportedOperationException("Not implemented yet");
+        return buildSessionResponse(authService.login(userLoginRequestDto));
     }
 
     @Override
     public ResponseEntity<Void> loginWithGoogle(final GoogleLoginRequestDto googleLoginRequestDto) {
-        throw new UnsupportedOperationException("Not implemented yet");
+        return buildSessionResponse(authService.loginWithGoogle(googleLoginRequestDto));
     }
 
     @Override
-    public ResponseEntity<Void> refreshSession() {
-        throw new UnsupportedOperationException("Not implemented yet");
+    public ResponseEntity<Void> refreshSession(final String refreshToken) {
+        return buildSessionResponse(authService.refresh(refreshToken));
     }
 
     @Override
-    public ResponseEntity<Void> logoutUser() {
-        throw new UnsupportedOperationException("Not implemented yet");
+    public ResponseEntity<Void> logoutUser(final String refreshToken) {
+        authService.logout(refreshToken);
+        return ResponseEntity.noContent().headers(authCookieService.buildClearedCookies()).build();
     }
 
     @Override
     public ResponseEntity<Void> getCsrfToken() {
-        throw new UnsupportedOperationException("Not implemented yet");
+        return ResponseEntity.noContent().build();
+    }
+
+    private ResponseEntity<Void> buildSessionResponse(final AuthTokens authTokens) {
+        return ResponseEntity.noContent().headers(authCookieService.buildSessionCookies(authTokens)).build();
     }
 }
