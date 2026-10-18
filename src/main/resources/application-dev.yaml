@@ -21,5 +21,7 @@ springdoc:
         url: ${server.servlet.context-path}/openapi/auth.yaml
       - name: User
         url: ${server.servlet.context-path}/openapi/user.yaml
+      - name: Programs
+        url: ${server.servlet.context-path}/openapi/program.yaml
     csrf:
       enabled: true

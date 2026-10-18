@@ -1,0 +1,660 @@
+openapi: 3.0.3
+info:
+  title: Arete API - training programs
+  description: >
+    The signed-in user's training programs. A program is a plan of dated days: each date holds its own ordered
+    workout parts, and a date without a day is a rest day. After training, the user gives feedback on each day:
+    completed or skipped, with notes and per-part results.
+  version: 1.0.0
+
+servers:
+  - url: /api/v1
+
+security:
+  - cookieAuth: []
+
+paths:
+  /programs:
+    get:
+      tags: [Program]
+      summary: List the signed-in user's programs
+      description: >
+        Returns one page of the caller's training programs, newest first unless another sort is requested.
+        Filters are optional and combined with AND.
+      operationId: getPrograms
+      parameters:
+        - $ref: './common.yaml#/components/parameters/Page'
+        - $ref: './common.yaml#/components/parameters/Size'
+        - name: sort
+          in: query
+          required: false
+          description: Field to sort by.
+          schema:
+            $ref: '#/components/schemas/ProgramSortField'
+        - $ref: './common.yaml#/components/parameters/Direction'
+        - name: name
+          in: query
+          required: false
+          description: Only programs whose name contains this text, ignoring case.
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 100
+          example: elite
+        - name: createdFrom
+          in: query
+          required: false
+          description: Only programs created on or after this date (UTC).
+          schema:
+            type: string
+            format: date
+        - name: createdTo
+          in: query
+          required: false
+          description: Only programs created on or before this date (UTC), not before `createdFrom`.
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: One page of the caller's programs.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProgramPageResponse'
+        '400':
+          $ref: './common.yaml#/components/responses/BadRequest'
+        '401':
+          $ref: './common.yaml#/components/responses/Unauthorized'
+    post:
+      tags: [Program]
+      summary: Create a program
+      description: Creates an empty training program owned by the caller. Plan its days with PUT /programs/{programId}/days/{date}.
+      operationId: createProgram
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProgramRequest'
+      responses:
+        '201':
+          description: The created program.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProgramResponse'
+        '400':
+          $ref: './common.yaml#/components/responses/BadRequest'
+        '401':
+          $ref: './common.yaml#/components/responses/Unauthorized'
+        '403':
+          $ref: './common.yaml#/components/responses/Forbidden'
+
+  /programs/{programId}:
+    parameters:
+      - $ref: '#/components/parameters/ProgramId'
+    get:
+      tags: [Program]
+      summary: Get a program
+      description: Returns one of the caller's programs, without its days.
+      operationId: getProgram
+      responses:
+        '200':
+          description: The program.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProgramResponse'
+        '401':
+          $ref: './common.yaml#/components/responses/Unauthorized'
+        '404':
+          $ref: './common.yaml#/components/responses/NotFound'
+    put:
+      tags: [Program]
+      summary: Update a program
+      description: Replaces the name and description of one of the caller's programs. Its days are left unchanged.
+      operationId: updateProgram
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProgramRequest'
+      responses:
+        '200':
+          description: The updated program.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProgramResponse'
+        '400':
+          $ref: './common.yaml#/components/responses/BadRequest'
+        '401':
+          $ref: './common.yaml#/components/responses/Unauthorized'
+        '403':
+          $ref: './common.yaml#/components/responses/Forbidden'
+        '404':
+          $ref: './common.yaml#/components/responses/NotFound'
+    delete:
+      tags: [Program]
+      summary: Delete a program
+      description: Permanently deletes one of the caller's programs together with all its days.
+      operationId: deleteProgram
+      responses:
+        '204':
+          description: The program was deleted.
+        '401':
+          $ref: './common.yaml#/components/responses/Unauthorized'
+        '403':
+          $ref: './common.yaml#/components/responses/Forbidden'
+        '404':
+          $ref: './common.yaml#/components/responses/NotFound'
+
+  /programs/{programId}/calendar:
+    parameters:
+      - $ref: '#/components/parameters/ProgramId'
+    get:
+      tags: [ProgramDay]
+      summary: Get a program's calendar
+      description: >
+        Returns one entry for every date from `from` to `to` (both inclusive), with the planned day of that date
+        or no day on rest days. The range is limited to a configured number of days.
+      operationId: getProgramCalendar
+      parameters:
+        - name: from
+          in: query
+          required: true
+          description: First date of the range.
+          schema:
+            type: string
+            format: date
+          example: '2026-10-19'
+        - name: to
+          in: query
+          required: true
+          description: Last date of the range, not before `from`.
+          schema:
+            type: string
+            format: date
+          example: '2026-10-25'
+      responses:
+        '200':
+          description: One entry per date in the range.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProgramCalendarResponse'
+        '400':
+          $ref: './common.yaml#/components/responses/BadRequest'
+        '401':
+          $ref: './common.yaml#/components/responses/Unauthorized'
+        '404':
+          $ref: './common.yaml#/components/responses/NotFound'
+
+  /programs/{programId}/days:
+    parameters:
+      - $ref: '#/components/parameters/ProgramId'
+    get:
+      tags: [ProgramDay]
+      summary: List a program's days
+      description: >
+        Returns one page of the program's planned days, most recent first unless another direction is requested.
+        Filters are optional and combined with AND.
+      operationId: getProgramDays
+      parameters:
+        - $ref: './common.yaml#/components/parameters/Page'
+        - $ref: './common.yaml#/components/parameters/Size'
+        - name: sort
+          in: query
+          required: false
+          description: Field to sort by.
+          schema:
+            $ref: '#/components/schemas/ProgramDaySortField'
+        - $ref: './common.yaml#/components/parameters/Direction'
+        - name: from
+          in: query
+          required: false
+          description: Only days on or after this date.
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          required: false
+          description: Only days on or before this date, not before `from`.
+          schema:
+            type: string
+            format: date
+        - name: status
+          in: query
+          required: false
+          description: Only days with this status.
+          schema:
+            $ref: '#/components/schemas/DayStatus'
+      responses:
+        '200':
+          description: One page of the program's days.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProgramDayPageResponse'
+        '400':
+          $ref: './common.yaml#/components/responses/BadRequest'
+        '401':
+          $ref: './common.yaml#/components/responses/Unauthorized'
+        '404':
+          $ref: './common.yaml#/components/responses/NotFound'
+
+  /programs/{programId}/days/{date}:
+    parameters:
+      - $ref: '#/components/parameters/ProgramId'
+      - $ref: '#/components/parameters/DayDate'
+    get:
+      tags: [ProgramDay]
+      summary: Get a program day
+      description: Returns the planned day of one date, with its workout parts in order.
+      operationId: getProgramDay
+      responses:
+        '200':
+          description: The day.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProgramDayResponse'
+        '401':
+          $ref: './common.yaml#/components/responses/Unauthorized'
+        '404':
+          $ref: './common.yaml#/components/responses/NotFound'
+    put:
+      tags: [ProgramDay]
+      summary: Plan a program day
+      description: >
+        Creates the plan of this date, or replaces the workout parts of an existing one. The order of the parts is
+        the order of the array. Replacing the parts clears their feedback; the day's status and notes are kept.
+      operationId: updateProgramDay
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProgramDayRequest'
+      responses:
+        '200':
+          description: The planned day.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProgramDayResponse'
+        '400':
+          $ref: './common.yaml#/components/responses/BadRequest'
+        '401':
+          $ref: './common.yaml#/components/responses/Unauthorized'
+        '403':
+          $ref: './common.yaml#/components/responses/Forbidden'
+        '404':
+          $ref: './common.yaml#/components/responses/NotFound'
+    delete:
+      tags: [ProgramDay]
+      summary: Delete a program day
+      description: Removes the plan of this date, making it a rest day.
+      operationId: deleteProgramDay
+      responses:
+        '204':
+          description: The day was deleted.
+        '401':
+          $ref: './common.yaml#/components/responses/Unauthorized'
+        '403':
+          $ref: './common.yaml#/components/responses/Forbidden'
+        '404':
+          $ref: './common.yaml#/components/responses/NotFound'
+
+  /programs/{programId}/days/{date}/feedback:
+    parameters:
+      - $ref: '#/components/parameters/ProgramId'
+      - $ref: '#/components/parameters/DayDate'
+    put:
+      tags: [ProgramDay]
+      summary: Give feedback on a program day
+      description: >
+        Saves the user's feedback on how the day went: its status, notes and the result of each listed workout part.
+        Parts that aren't listed keep their feedback. The plan itself isn't changed. A day can only be completed on
+        or before today.
+      operationId: updateProgramDayFeedback
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProgramDayFeedbackRequest'
+      responses:
+        '200':
+          description: The day with its feedback.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProgramDayResponse'
+        '400':
+          $ref: './common.yaml#/components/responses/BadRequest'
+        '401':
+          $ref: './common.yaml#/components/responses/Unauthorized'
+        '403':
+          $ref: './common.yaml#/components/responses/Forbidden'
+        '404':
+          $ref: './common.yaml#/components/responses/NotFound'
+
+  /programs/{programId}/days/{date}/move:
+    parameters:
+      - $ref: '#/components/parameters/ProgramId'
+      - $ref: '#/components/parameters/DayDate'
+    post:
+      tags: [ProgramDay]
+      summary: Move a program day
+      description: >
+        Moves the plan of this date to another date, which leaves this date a rest day. If the other date already
+        has a plan, the moved parts are added after its parts. The moved day starts again as planned, without results.
+        Completed days can't be moved.
+      operationId: moveProgramDay
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MoveProgramDayRequest'
+      responses:
+        '200':
+          description: The day at its new date.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProgramDayResponse'
+        '400':
+          $ref: './common.yaml#/components/responses/BadRequest'
+        '401':
+          $ref: './common.yaml#/components/responses/Unauthorized'
+        '403':
+          $ref: './common.yaml#/components/responses/Forbidden'
+        '404':
+          $ref: './common.yaml#/components/responses/NotFound'
+        '409':
+          $ref: './common.yaml#/components/responses/Conflict'
+
+components:
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: access_token
+
+  parameters:
+    ProgramId:
+      name: programId
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+      example: 1
+    DayDate:
+      name: date
+      in: path
+      required: true
+      description: The date of the day.
+      schema:
+        type: string
+        format: date
+      example: '2026-10-19'
+
+  schemas:
+    ProgramRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+          example: Elite Athlete
+        description:
+          type: string
+          maxLength: 1000
+          example: Six training days a week for competitive athletes.
+
+    ProgramResponse:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 1
+        name:
+          type: string
+          example: Elite Athlete
+        description:
+          type: string
+          example: Six training days a week for competitive athletes.
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    ProgramPageResponse:
+      type: object
+      required: [content, page, size, totalElements, totalPages]
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProgramResponse'
+        page:
+          type: integer
+          example: 0
+        size:
+          type: integer
+          example: 20
+        totalElements:
+          type: integer
+          format: int64
+          example: 3
+        totalPages:
+          type: integer
+          example: 1
+
+    ProgramSortField:
+      type: string
+      enum: [NAME, CREATED_AT, UPDATED_AT]
+      default: CREATED_AT
+
+    ProgramDayRequest:
+      type: object
+      required: [parts]
+      properties:
+        parts:
+          type: array
+          minItems: 1
+          maxItems: 20
+          items:
+            $ref: '#/components/schemas/WorkoutPartRequest'
+
+    WorkoutPartRequest:
+      type: object
+      required: [title]
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 150
+          example: Lower body strength
+        description:
+          type: string
+          maxLength: 4000
+          example: Back squat 5x5, Romanian deadlift 3x8, walking lunges 3x12.
+        durationMinutes:
+          type: integer
+          minimum: 1
+          maximum: 1440
+          example: 60
+
+    ProgramDayFeedbackRequest:
+      type: object
+      required: [status]
+      properties:
+        status:
+          $ref: '#/components/schemas/DayStatus'
+        notes:
+          type: string
+          maxLength: 2000
+          example: Felt strong, legs a bit tired at the end.
+        parts:
+          type: array
+          maxItems: 20
+          items:
+            $ref: '#/components/schemas/WorkoutPartFeedbackRequest'
+
+    WorkoutPartFeedbackRequest:
+      type: object
+      required: [partId, completed]
+      properties:
+        partId:
+          type: integer
+          format: int64
+          description: A workout part of this day.
+          example: 1
+        completed:
+          type: boolean
+          example: true
+        resultNotes:
+          type: string
+          maxLength: 2000
+          example: Squat 5x5 at 100 kg.
+
+    MoveProgramDayRequest:
+      type: object
+      required: [toDate]
+      properties:
+        toDate:
+          type: string
+          format: date
+          example: '2026-10-24'
+
+    ProgramDayResponse:
+      type: object
+      required: [id, date, dayOfWeek, status, parts]
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 1
+        date:
+          type: string
+          format: date
+          example: '2026-10-19'
+        dayOfWeek:
+          $ref: '#/components/schemas/DayOfWeek'
+        status:
+          $ref: '#/components/schemas/DayStatus'
+        notes:
+          type: string
+          example: Felt strong, legs a bit tired at the end.
+        parts:
+          type: array
+          items:
+            $ref: '#/components/schemas/WorkoutPartResponse'
+
+    WorkoutPartResponse:
+      type: object
+      required: [id, title, completed]
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 1
+        title:
+          type: string
+          example: Lower body strength
+        description:
+          type: string
+          example: Back squat 5x5, Romanian deadlift 3x8, walking lunges 3x12.
+        durationMinutes:
+          type: integer
+          example: 60
+        completed:
+          type: boolean
+          example: true
+        resultNotes:
+          type: string
+          example: Squat 5x5 at 100 kg.
+
+    ProgramDayPageResponse:
+      type: object
+      required: [content, page, size, totalElements, totalPages]
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProgramDayResponse'
+        page:
+          type: integer
+          example: 0
+        size:
+          type: integer
+          example: 20
+        totalElements:
+          type: integer
+          format: int64
+          example: 12
+        totalPages:
+          type: integer
+          example: 1
+
+    ProgramDaySortField:
+      type: string
+      enum: [DATE]
+      default: DATE
+
+    ProgramCalendarResponse:
+      type: object
+      required: [programId, from, to, days]
+      properties:
+        programId:
+          type: integer
+          format: int64
+          example: 1
+        from:
+          type: string
+          format: date
+          example: '2026-10-19'
+        to:
+          type: string
+          format: date
+          example: '2026-10-25'
+        days:
+          type: array
+          items:
+            $ref: '#/components/schemas/CalendarDayResponse'
+
+    CalendarDayResponse:
+      type: object
+      required: [date, dayOfWeek]
+      properties:
+        date:
+          type: string
+          format: date
+          example: '2026-10-19'
+        dayOfWeek:
+          $ref: '#/components/schemas/DayOfWeek'
+        day:
+          description: The planned day of this date; absent on rest days.
+          allOf:
+            - $ref: '#/components/schemas/ProgramDayResponse'
+
+    DayStatus:
+      type: string
+      enum: [PLANNED, COMPLETED, SKIPPED]
+
+    DayOfWeek:
+      type: string
+      enum: [MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY, SATURDAY, SUNDAY]

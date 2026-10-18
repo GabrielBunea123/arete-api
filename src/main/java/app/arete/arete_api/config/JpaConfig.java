@@ -1,9 +1,23 @@
 package app.arete.arete_api.config;
 
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.data.auditing.DateTimeProvider;
 import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
 
+import java.time.Clock;
+import java.time.LocalDateTime;
+import java.util.Optional;
+
 @Configuration
-@EnableJpaAuditing
+@EnableJpaAuditing(dateTimeProviderRef = "auditingDateTimeProvider")
 public class JpaConfig {
+
+    /**
+     * Audit timestamps come from the UTC clock, so stored LocalDateTimes are UTC regardless of the JVM time zone.
+     */
+    @Bean
+    public DateTimeProvider auditingDateTimeProvider(final Clock clock) {
+        return () -> Optional.of(LocalDateTime.now(clock));
+    }
 }

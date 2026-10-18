@@ -17,6 +17,9 @@ public class Constants {
 
     public static final int FULL_NAME_MAX_LENGTH = 100;
 
+    // Matches the `Size` parameter maximum in common.yaml
+    public static final int MAX_PAGE_SIZE = 100;
+
     public static final String GENERIC_ERROR_DETAIL = "An unexpected error occurred";
     public static final String INVALID_CREDENTIALS_DETAIL = "Invalid email or password";
     public static final String VALIDATION_FAILED_DETAIL = "Request validation failed";

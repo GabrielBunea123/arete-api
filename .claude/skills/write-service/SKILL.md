@@ -22,16 +22,34 @@ Related skills: `write-controller` (the caller) and `exception-handling` (what t
 package {basePackage}.service;
 
 public interface ProductService {
+
+    /**
+     * Returns one page of products matching the filters.
+     *
+     * @param page             zero-based page index
+     * @param size             number of products per page
+     * @param productFilterDto optional filters; {@code null} components don't filter
+     * @return the requested page and the totals
+     */
     ProductPageResponseDto getProducts(
             final int page,
             final int size,
             final ProductFilterDto productFilterDto);
+
+    /**
+     * Returns one product.
+     *
+     * @param id the product id
+     * @return the product
+     * @throws NotFoundException if no product has this id
+     */
     ProductResponseDto getProductById(final Long id);
-    ProductResponseDto createProduct(final ProductRequestDto productRequestDto);
-    ProductResponseDto updateProduct(final Long id, final ProductRequestDto productRequestDto);
-    void deleteProduct(final Long id);
+
+    // ... every other method documented the same way
 }
 ```
+
+Every interface method has Javadoc: a summary (plus anything a caller can't guess from the name, such as ownership scoping, ordering or side effects), `@param` for each parameter, `@return` unless void, and `@throws` for each typed exception it can raise. The Impl doesn't repeat it.
 
 ```java
 package {basePackage}.service.implementations;
@@ -110,7 +128,7 @@ public ProductPageResponseDto getProducts(
 
 - Page, size and sort come from the spec's query params (with defaults and bounds there). Build the `Pageable` with `PageRequest.of(...)`, and if the same sort handling is needed in several services, extract a `PaginationUtils` `@UtilityClass` in `util/`.
 - The mapper turns the `Page<X>` into the resource's `XPageResponseDto` (see `write-mapper`).
-- Filtering goes in a `@Component` `<X>Specifications` class in `specification/`, with one static predicate per filter that returns `null` when that filter is empty. `buildFilters(...)` combines them with `Specification.allOf(...)`.
+- Filtering goes in a `@Component` `<X>Specifications` class in `specification/`, with one static predicate per filter that returns `Specification.unrestricted()` when that filter is empty (Spring Data JPA 4 rejects `null` in `allOf`). `buildFilters(...)` combines them with `Specification.allOf(...)`.
 - The repository extends `JpaRepository<X, Long>, JpaSpecificationExecutor<X>`. Don't write JPQL for dynamic filters.
 - Unpaginated lists use `repository.findAll(...)`, then `stream().map(mapper::toX).toList()` or a mapper list method.
 
@@ -187,6 +205,7 @@ For a parent that owns an **ordered** collection (e.g. `Playlist` → `PlaylistT
 ## 10. Checklist
 
 - [ ] Interface method in `service/` with `final` params and DTO/record/id arguments (no caller id or username)
+- [ ] Javadoc on the interface method: summary, `@param` each, `@return` unless void, `@throws` for each typed exception
 - [ ] Impl in `service/implementations/` with `@Service @RequiredArgsConstructor` and `private final` deps
 - [ ] Caller resolved through `userService.getAuthenticatedUser()`, and user-owned data scoped by owner id in the query or specification
 - [ ] Every referenced id validated (404), and uniqueness checked (409)
