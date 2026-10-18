@@ -38,3 +38,5 @@ arete:
     issuers:
       - accounts.google.com
       - https://accounts.google.com
+  program:
+    calendar-max-days: 62

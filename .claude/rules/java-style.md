@@ -50,6 +50,7 @@ public ProductResponseDto getProductById(final Long id) {
 
 ## Comments
 - Comments explain **why**, not what. Well-named methods replace "what" comments.
+- Every method of a service interface has Javadoc: a summary of what it does and anything a caller can't guess from the name (ownership scoping, ordering, side effects), `@param` for each parameter, `@return` unless void, and `@throws` for each typed exception from `exception/` it can raise. The `*ServiceImpl` doesn't repeat it; Javadoc is inherited through `@Override`.
 - A `// TODO:` must state what's missing or wrong (`// TODO: restrict to ADMIN once roles are assigned on registration`).
 - Don't commit commented-out code (git keeps the history).
 
