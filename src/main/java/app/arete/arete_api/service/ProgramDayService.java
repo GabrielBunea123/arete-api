@@ -4,7 +4,6 @@ import app.arete.arete_api.api.model.MoveProgramDayRequestDto;
 import app.arete.arete_api.api.model.ProgramCalendarResponseDto;
 import app.arete.arete_api.api.model.ProgramDayFeedbackRequestDto;
 import app.arete.arete_api.api.model.ProgramDayPageResponseDto;
-import app.arete.arete_api.api.model.ProgramDayRequestDto;
 import app.arete.arete_api.api.model.ProgramDayResponseDto;
 import app.arete.arete_api.api.model.ProgramDaySortFieldDto;
 import app.arete.arete_api.api.model.SortDirectionDto;
@@ -12,6 +11,7 @@ import app.arete.arete_api.exception.BadRequestException;
 import app.arete.arete_api.exception.ConflictException;
 import app.arete.arete_api.exception.NotFoundException;
 import app.arete.arete_api.model.dto.program.ProgramDayFilterDto;
+import app.arete.arete_api.model.entity.ProgramDay;
 
 import java.time.LocalDate;
 
@@ -68,23 +68,7 @@ public interface ProgramDayService {
     ProgramDayResponseDto getUserProgramDay(final Long programId, final LocalDate date);
 
     /**
-     * Plans a date: creates its day as {@code PLANNED}, or replaces the workout parts of the existing day. The order
-     * of the requested parts becomes their saved order. Replacing the parts clears their results; the day's status
-     * and notes are kept.
-     *
-     * @param programId            the program id
-     * @param date                 the date to plan
-     * @param programDayRequestDto the workout parts of the day
-     * @return the planned day
-     * @throws NotFoundException if the program doesn't exist or belongs to another user
-     */
-    ProgramDayResponseDto updateUserProgramDay(
-            final Long programId,
-            final LocalDate date,
-            final ProgramDayRequestDto programDayRequestDto);
-
-    /**
-     * Deletes the day planned on one date, making it a rest day.
+     * Deletes the day planned on one date with all its workout parts, making it a rest day.
      *
      * @param programId the program id
      * @param date      the date of the day
@@ -126,4 +110,25 @@ public interface ProgramDayService {
             final Long programId,
             final LocalDate date,
             final MoveProgramDayRequestDto moveProgramDayRequestDto);
+
+    /**
+     * Returns the entity of the day planned on one date, for other services that change its workout parts.
+     *
+     * @param programId the program id
+     * @param date      the date of the day
+     * @return the day entity
+     * @throws NotFoundException if the program doesn't exist or belongs to another user, or the date is a rest day
+     */
+    ProgramDay getUserProgramDayEntity(final Long programId, final LocalDate date);
+
+    /**
+     * Returns the entity of the day planned on one date. A rest day gets a new, unsaved day with status
+     * {@code PLANNED}, which the caller saves together with its first part.
+     *
+     * @param programId the program id
+     * @param date      the date of the day
+     * @return the existing day entity, or a new unsaved one for a rest day
+     * @throws NotFoundException if the program doesn't exist or belongs to another user
+     */
+    ProgramDay getOrCreateUserProgramDayEntity(final Long programId, final LocalDate date);
 }

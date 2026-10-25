@@ -6,7 +6,6 @@ import app.arete.arete_api.api.model.MoveProgramDayRequestDto;
 import app.arete.arete_api.api.model.ProgramCalendarResponseDto;
 import app.arete.arete_api.api.model.ProgramDayFeedbackRequestDto;
 import app.arete.arete_api.api.model.ProgramDayPageResponseDto;
-import app.arete.arete_api.api.model.ProgramDayRequestDto;
 import app.arete.arete_api.api.model.ProgramDayResponseDto;
 import app.arete.arete_api.api.model.ProgramDaySortFieldDto;
 import app.arete.arete_api.api.model.SortDirectionDto;
@@ -52,14 +51,6 @@ public class ProgramDayController implements ProgramDayApi {
     @Override
     public ResponseEntity<ProgramDayResponseDto> getProgramDay(final Long programId, final LocalDate date) {
         return ResponseEntity.ok(programDayService.getUserProgramDay(programId, date));
-    }
-
-    @Override
-    public ResponseEntity<ProgramDayResponseDto> updateProgramDay(
-            final Long programId,
-            final LocalDate date,
-            final ProgramDayRequestDto programDayRequestDto) {
-        return ResponseEntity.ok(programDayService.updateUserProgramDay(programId, date, programDayRequestDto));
     }
 
     @Override

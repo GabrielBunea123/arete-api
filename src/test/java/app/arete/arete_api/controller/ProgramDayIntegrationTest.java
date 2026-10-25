@@ -56,9 +56,10 @@ class ProgramDayIntegrationTest extends AbstractProgramIntegrationTest {
     @Test
     void changingOneDateLeavesOtherDatesUnchanged() throws Exception {
         putDay(lastMonday, "Easy run");
-        putDay(thisMonday, "Intervals");
+        final String intervals = putDay(thisMonday, "Intervals").getContentAsString();
+        final long intervalsPartId = JsonPath.<Number>read(intervals, "$.parts[0].id").longValue();
 
-        putDay(thisMonday, "Long run");
+        updatePart(thisMonday, intervalsPartId, "Long run");
 
         assertThat(readStrings(getDay(lastMonday).getContentAsString(), "$.parts[*].title"))
                 .containsExactly("Easy run");
@@ -88,19 +89,21 @@ class ProgramDayIntegrationTest extends AbstractProgramIntegrationTest {
     }
 
     @Test
-    void replanningADayClearsPartResultsButKeepsItsStatus() throws Exception {
+    void editingAPartKeepsItsResultsAndTheDaysStatus() throws Exception {
         final LocalDate yesterday = today.minusDays(1);
         final long partId = JsonPath.<Number>read(putDay(yesterday, "Strength").getContentAsString(), "$.parts[0].id")
                 .longValue();
         giveFeedback(yesterday, """
-                {"status":"COMPLETED","parts":[{"partId":%d,"completed":true}]}
+                {"status":"COMPLETED","parts":[{"partId":%d,"completed":true,"resultNotes":"Squat 5x5"}]}
                 """.formatted(partId));
 
-        final String replanned = putDay(yesterday, "Mobility", "Intervals").getContentAsString();
+        updatePart(yesterday, partId, "Mobility");
 
-        assertThat(JsonPath.<String>read(replanned, "$.status")).isEqualTo("COMPLETED");
-        assertThat(readStrings(replanned, "$.parts[*].title")).containsExactly("Mobility", "Intervals");
-        assertThat(JsonPath.<List<Boolean>>read(replanned, "$.parts[*].completed")).containsOnly(false);
+        final String day = getDay(yesterday).getContentAsString();
+        assertThat(JsonPath.<String>read(day, "$.status")).isEqualTo("COMPLETED");
+        assertThat(readStrings(day, "$.parts[*].title")).containsExactly("Mobility");
+        assertThat(JsonPath.<Boolean>read(day, "$.parts[0].completed")).isTrue();
+        assertThat(JsonPath.<String>read(day, "$.parts[0].resultNotes")).isEqualTo("Squat 5x5");
     }
 
     @Test
@@ -217,8 +220,8 @@ class ProgramDayIntegrationTest extends AbstractProgramIntegrationTest {
     @Test
     void invalidRequestsAreBadRequest() throws Exception {
         final List<MockHttpServletResponse> responses = List.of(
-                putDayWithBody(today, """
-                        {"parts":[]}
+                postPartWithBody(today, """
+                        {"title":""}
                         """),
                 getCalendar(today, today.minusDays(1)),
                 getCalendar(today, today.plusYears(1)),
@@ -233,7 +236,8 @@ class ProgramDayIntegrationTest extends AbstractProgramIntegrationTest {
 
     @Test
     void anotherUsersProgramDaysAreNotFound() throws Exception {
-        putDay(today, "Easy run");
+        final long partId = JsonPath.<Number>read(putDay(today, "Easy run").getContentAsString(), "$.parts[0].id")
+                .longValue();
         final Cookie ownerCookie = owner;
         owner = registerAndGetAccessCookie();
 
@@ -241,7 +245,10 @@ class ProgramDayIntegrationTest extends AbstractProgramIntegrationTest {
                 getCalendar(today, today),
                 listDays(),
                 getDay(today),
-                putDay(today, "Hijacked"),
+                postPart(today, "Hijacked"),
+                updatePart(today, partId, "Hijacked"),
+                deletePart(today, partId),
+                reorderParts(today, partId),
                 giveFeedback(today, """
                         {"status":"SKIPPED"}
                         """),
@@ -253,18 +260,46 @@ class ProgramDayIntegrationTest extends AbstractProgramIntegrationTest {
         assertThat(readStrings(getDay(today).getContentAsString(), "$.parts[*].title")).containsExactly("Easy run");
     }
 
+    /**
+     * Plans a date by adding one part per title, and returns the resulting day.
+     */
     private MockHttpServletResponse putDay(final LocalDate date, final String... partTitles) throws Exception {
-        final String parts = Arrays.stream(partTitles)
-                .map("{\"title\":\"%s\"}"::formatted)
-                .collect(Collectors.joining(","));
-        return putDayWithBody(date, "{\"parts\":[" + parts + "]}");
+        for (final String partTitle : partTitles) {
+            assertThat(postPart(date, partTitle).getStatus()).isEqualTo(201);
+        }
+        return getDay(date);
     }
 
-    private MockHttpServletResponse putDayWithBody(final LocalDate date, final String body) throws Exception {
-        return perform(withCsrf(put("/programs/{programId}/days/{date}", programId, date))
+    private MockHttpServletResponse postPart(final LocalDate date, final String title) throws Exception {
+        return postPartWithBody(date, "{\"title\":\"%s\"}".formatted(title));
+    }
+
+    private MockHttpServletResponse postPartWithBody(final LocalDate date, final String body) throws Exception {
+        return perform(withCsrf(post("/programs/{programId}/days/{date}/parts", programId, date))
                 .cookie(owner)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(body));
+    }
+
+    private MockHttpServletResponse updatePart(final LocalDate date, final long partId, final String title)
+            throws Exception {
+        return perform(withCsrf(put("/programs/{programId}/days/{date}/parts/{partId}", programId, date, partId))
+                .cookie(owner)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"title\":\"%s\"}".formatted(title)));
+    }
+
+    private MockHttpServletResponse deletePart(final LocalDate date, final long partId) throws Exception {
+        return perform(withCsrf(delete("/programs/{programId}/days/{date}/parts/{partId}", programId, date, partId))
+                .cookie(owner));
+    }
+
+    private MockHttpServletResponse reorderParts(final LocalDate date, final long... partIds) throws Exception {
+        final String ids = Arrays.stream(partIds).mapToObj(Long::toString).collect(Collectors.joining(","));
+        return perform(withCsrf(post("/programs/{programId}/days/{date}/parts/reorder", programId, date))
+                .cookie(owner)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"partIds\":[%s]}".formatted(ids)));
     }
 
     private MockHttpServletResponse giveFeedback(final LocalDate date, final String body) throws Exception {

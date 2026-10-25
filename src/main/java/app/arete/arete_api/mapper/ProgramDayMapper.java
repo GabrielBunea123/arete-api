@@ -7,8 +7,6 @@ import app.arete.arete_api.api.model.ProgramCalendarResponseDto;
 import app.arete.arete_api.api.model.ProgramDayPageResponseDto;
 import app.arete.arete_api.api.model.ProgramDayResponseDto;
 import app.arete.arete_api.api.model.ProgramDaySortFieldDto;
-import app.arete.arete_api.api.model.WorkoutPartRequestDto;
-import app.arete.arete_api.api.model.WorkoutPartResponseDto;
 import app.arete.arete_api.model.dto.program.ProgramDayFilterDto;
 import app.arete.arete_api.model.entity.Program;
 import app.arete.arete_api.model.entity.ProgramDay;
@@ -26,14 +24,12 @@ import java.time.LocalDate;
 import java.util.Collection;
 import java.util.List;
 
-@Mapper(config = CentralMapperConfig.class)
+@Mapper(config = CentralMapperConfig.class, uses = WorkoutPartMapper.class)
 public interface ProgramDayMapper {
 
     @Mapping(target = "date", source = "dayDate")
     @Mapping(target = "dayOfWeek", source = "dayDate.dayOfWeek")
     ProgramDayResponseDto toProgramDayResponseDto(final ProgramDay programDay);
-
-    WorkoutPartResponseDto toWorkoutPartResponseDto(final WorkoutPart workoutPart);
 
     @Mapping(target = "page", source = "number")
     ProgramDayPageResponseDto toProgramDayPageResponseDto(final Page<ProgramDay> programDayPage);
@@ -50,21 +46,12 @@ public interface ProgramDayMapper {
             final List<CalendarDayResponseDto> days);
 
     /**
-     * Parts are set by the service through {@link ProgramDay#replaceParts}, which also assigns their order.
+     * Parts are added by the service through {@link ProgramDay#addPart}, which also assigns their order.
      */
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "notes", ignore = true)
     @Mapping(target = "parts", ignore = true)
     ProgramDay toProgramDay(final Program program, final LocalDate dayDate, final DayStatus status);
-
-    @Mapping(target = "id", ignore = true)
-    @Mapping(target = "programDay", ignore = true)
-    @Mapping(target = "orderIndex", ignore = true)
-    @Mapping(target = "completed", ignore = true)
-    @Mapping(target = "resultNotes", ignore = true)
-    WorkoutPart toWorkoutPart(final WorkoutPartRequestDto workoutPartRequestDto);
-
-    List<WorkoutPart> toWorkoutParts(final List<WorkoutPartRequestDto> workoutPartRequestDtos);
 
     /**
      * A copy of the planned content of a part, without feedback, for adding it to another day.
