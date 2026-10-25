@@ -69,7 +69,7 @@ paths:
     post:
       tags: [Program]
       summary: Create a program
-      description: Creates an empty training program owned by the caller. Plan its days with PUT /programs/{programId}/days/{date}.
+      description: Creates an empty training program owned by the caller. Plan its days by adding workout parts with POST /programs/{programId}/days/{date}/parts.
       operationId: createProgram
       requestBody:
         required: true
@@ -266,22 +266,75 @@ paths:
           $ref: './common.yaml#/components/responses/Unauthorized'
         '404':
           $ref: './common.yaml#/components/responses/NotFound'
-    put:
+    delete:
       tags: [ProgramDay]
-      summary: Plan a program day
+      summary: Delete a program day
+      description: Removes the plan of this date with all its workout parts, making it a rest day.
+      operationId: deleteProgramDay
+      responses:
+        '204':
+          description: The day was deleted.
+        '401':
+          $ref: './common.yaml#/components/responses/Unauthorized'
+        '403':
+          $ref: './common.yaml#/components/responses/Forbidden'
+        '404':
+          $ref: './common.yaml#/components/responses/NotFound'
+
+  /programs/{programId}/days/{date}/parts:
+    parameters:
+      - $ref: '#/components/parameters/ProgramId'
+      - $ref: '#/components/parameters/DayDate'
+    post:
+      tags: [WorkoutPart]
+      summary: Add a workout part to a program day
       description: >
-        Creates the plan of this date, or replaces the workout parts of an existing one. The order of the parts is
-        the order of the array. Replacing the parts clears their feedback; the day's status and notes are kept.
-      operationId: updateProgramDay
+        Adds a workout part after the existing parts of this date. If the date is a rest day, it becomes a planned day
+        with this part. A day holds at most a configured number of parts.
+      operationId: createWorkoutPart
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ProgramDayRequest'
+              $ref: '#/components/schemas/WorkoutPartRequest'
+      responses:
+        '201':
+          description: The created workout part.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkoutPartResponse'
+        '400':
+          $ref: './common.yaml#/components/responses/BadRequest'
+        '401':
+          $ref: './common.yaml#/components/responses/Unauthorized'
+        '403':
+          $ref: './common.yaml#/components/responses/Forbidden'
+        '404':
+          $ref: './common.yaml#/components/responses/NotFound'
+        '409':
+          $ref: './common.yaml#/components/responses/Conflict'
+
+  /programs/{programId}/days/{date}/parts/reorder:
+    parameters:
+      - $ref: '#/components/parameters/ProgramId'
+      - $ref: '#/components/parameters/DayDate'
+    post:
+      tags: [WorkoutPart]
+      summary: Reorder the workout parts of a program day
+      description: >
+        Sets the order of the day's parts to the order of `partIds`, which must list every part of the day exactly once.
+      operationId: reorderWorkoutParts
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReorderWorkoutPartsRequest'
       responses:
         '200':
-          description: The planned day.
+          description: The day with its parts in the new order.
           content:
             application/json:
               schema:
@@ -294,14 +347,49 @@ paths:
           $ref: './common.yaml#/components/responses/Forbidden'
         '404':
           $ref: './common.yaml#/components/responses/NotFound'
+
+  /programs/{programId}/days/{date}/parts/{partId}:
+    parameters:
+      - $ref: '#/components/parameters/ProgramId'
+      - $ref: '#/components/parameters/DayDate'
+      - $ref: '#/components/parameters/WorkoutPartId'
+    put:
+      tags: [WorkoutPart]
+      summary: Update a workout part
+      description: >
+        Replaces the title, description and duration of one workout part. Its position and its feedback are kept.
+      operationId: updateWorkoutPart
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WorkoutPartRequest'
+      responses:
+        '200':
+          description: The updated workout part.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkoutPartResponse'
+        '400':
+          $ref: './common.yaml#/components/responses/BadRequest'
+        '401':
+          $ref: './common.yaml#/components/responses/Unauthorized'
+        '403':
+          $ref: './common.yaml#/components/responses/Forbidden'
+        '404':
+          $ref: './common.yaml#/components/responses/NotFound'
     delete:
-      tags: [ProgramDay]
-      summary: Delete a program day
-      description: Removes the plan of this date, making it a rest day.
-      operationId: deleteProgramDay
+      tags: [WorkoutPart]
+      summary: Delete a workout part
+      description: >
+        Removes one workout part; the parts after it move up. Deleting the last part of a day also deletes the day,
+        making the date a rest day.
+      operationId: deleteWorkoutPart
       responses:
         '204':
-          description: The day was deleted.
+          description: The workout part was deleted.
         '401':
           $ref: './common.yaml#/components/responses/Unauthorized'
         '403':
@@ -395,6 +483,14 @@ components:
         type: integer
         format: int64
       example: 1
+    WorkoutPartId:
+      name: partId
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+      example: 1
     DayDate:
       name: date
       in: path
@@ -468,16 +564,18 @@ components:
       enum: [NAME, CREATED_AT, UPDATED_AT]
       default: CREATED_AT
 
-    ProgramDayRequest:
+    ReorderWorkoutPartsRequest:
       type: object
-      required: [parts]
+      required: [partIds]
       properties:
-        parts:
+        partIds:
           type: array
           minItems: 1
-          maxItems: 20
+          description: Every part id of the day, in the wanted order.
           items:
-            $ref: '#/components/schemas/WorkoutPartRequest'
+            type: integer
+            format: int64
+          example: [3, 1, 2]
 
     WorkoutPartRequest:
       type: object

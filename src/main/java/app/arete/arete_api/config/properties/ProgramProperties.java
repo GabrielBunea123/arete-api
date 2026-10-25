@@ -7,6 +7,7 @@ import org.springframework.validation.annotation.Validated;
 @Validated
 @ConfigurationProperties(prefix = "arete.program")
 public record ProgramProperties(
-        @Positive int calendarMaxDays
+        @Positive int calendarMaxDays,
+        @Positive int maxPartsPerDay
 ) {
 }

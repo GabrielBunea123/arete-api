@@ -5,7 +5,6 @@ import app.arete.arete_api.api.model.MoveProgramDayRequestDto;
 import app.arete.arete_api.api.model.ProgramCalendarResponseDto;
 import app.arete.arete_api.api.model.ProgramDayFeedbackRequestDto;
 import app.arete.arete_api.api.model.ProgramDayPageResponseDto;
-import app.arete.arete_api.api.model.ProgramDayRequestDto;
 import app.arete.arete_api.api.model.ProgramDayResponseDto;
 import app.arete.arete_api.api.model.ProgramDaySortFieldDto;
 import app.arete.arete_api.api.model.SortDirectionDto;
@@ -100,19 +99,6 @@ public class ProgramDayServiceImpl implements ProgramDayService {
 
     @Override
     @Transactional
-    public ProgramDayResponseDto updateUserProgramDay(
-            final Long programId,
-            final LocalDate date,
-            final ProgramDayRequestDto programDayRequestDto) {
-        final Program program = programService.getUserProgramEntity(programId);
-        final ProgramDay programDay = programDayRepository.findByProgramIdAndDayDate(program.getId(), date)
-                .orElseGet(() -> programDayMapper.toProgramDay(program, date, DayStatus.PLANNED));
-        programDay.replaceParts(programDayMapper.toWorkoutParts(programDayRequestDto.getParts()));
-        return programDayMapper.toProgramDayResponseDto(programDayRepository.saveAndFlush(programDay));
-    }
-
-    @Override
-    @Transactional
     public void deleteUserProgramDay(final Long programId, final LocalDate date) {
         programDayRepository.delete(getUserProgramDayEntity(programId, date));
     }
@@ -163,10 +149,20 @@ public class ProgramDayServiceImpl implements ProgramDayService {
         return programDayMapper.toProgramDayResponseDto(programDayRepository.saveAndFlush(targetDay.get()));
     }
 
-    private ProgramDay getUserProgramDayEntity(final Long programId, final LocalDate date) {
+    @Override
+    @Transactional(readOnly = true)
+    public ProgramDay getUserProgramDayEntity(final Long programId, final LocalDate date) {
         final Program program = programService.getUserProgramEntity(programId);
         return programDayRepository.findByProgramIdAndDayDate(program.getId(), date)
                 .orElseThrow(() -> new NotFoundException(PROGRAM_DAY_NOT_FOUND_DETAIL));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public ProgramDay getOrCreateUserProgramDayEntity(final Long programId, final LocalDate date) {
+        final Program program = programService.getUserProgramEntity(programId);
+        return programDayRepository.findByProgramIdAndDayDate(program.getId(), date)
+                .orElseGet(() -> programDayMapper.toProgramDay(program, date, DayStatus.PLANNED));
     }
 
     private void validateCalendarRange(final LocalDate from, final LocalDate to) {

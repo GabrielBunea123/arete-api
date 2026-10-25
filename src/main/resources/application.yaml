@@ -40,3 +40,4 @@ arete:
       - https://accounts.google.com
   program:
     calendar-max-days: 62
+    max-parts-per-day: 20
